@@ -30,7 +30,7 @@ LOCAL_SRC_FILES += \
 
 LOCAL_CFLAGS := -Wall -Wextra -Werror
 
-ifeq ($(TARGET_DEVICE), x2)
+ifeq ($(TARGET_DEVICE), max_plus x2)
 LOCAL_CFLAGS += -DDEVICE_X2
 endif
 

@@ -147,6 +147,15 @@ void init_target_properties()
             property_set("persist.nfc.smartcard.config", "SIM1,SIM2,eSE1");
             unknownDevice = 0;
         }
+        else if (!strncmp(device.c_str(), "max_plus", 8)) {
+            // This is LEX910
+            property_override_dual("ro.product.model", "ro.vendor.product.model", "LEX910");
+            // Dual SIM
+            property_set("persist.radio.multisim.config", "dsds");
+            // NFC
+            property_set("persist.nfc.smartcard.config", "SIM1,SIM2,eSE1");
+            unknownDevice = 0;
+        }
     }
     else {
         LOG(ERROR) << "Unable to read DEVINFO from " << DEVINFO_FILE;
