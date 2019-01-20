@@ -224,6 +224,8 @@ include device/qcom/sepolicy-legacy-um/sepolicy.mk
 BOARD_SEPOLICY_DIRS += $(PLATFORM_PATH)/sepolicy/vendor
 BOARD_PLAT_PRIVATE_SEPOLICY_DIR += $(PLATFORM_PATH)/sepolicy/private
 
+SELINUX_IGNORE_NEVERALLOWS := true
+
 # Shims
 TARGET_LD_SHIM_LIBS := \
     /system/lib/libui.so|libui_shim.so \
