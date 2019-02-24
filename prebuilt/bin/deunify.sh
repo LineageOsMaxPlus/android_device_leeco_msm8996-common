@@ -9,6 +9,14 @@ DEVINFO=$(cat /dev/block/sde21)
 echo "DEVINFO: ${DEVINFO}"
 
 case "$DEVINFO" in
+  max_plus*)
+    # Move ACDB
+    mv -f /vendor/etc/acdbdata/MTP/max_plus/* /vendor/etc/acdbdata/MTP/
+
+    # Move firmware
+    mv -f /vendor/firmware/max_plus/* /vendor/firmware/
+    ;;
+
   le_zl0*)
     # Move firmware
     mv -f /vendor/firmware/zl0/* /vendor/firmware/
@@ -27,6 +35,7 @@ case "$DEVINFO" in
     rm -f /vendor/etc/init/android.hardware.nfc*
     rm -f /vendor/etc/init/vendor.nxp.hardware.nfc*
     ;;
+
   *)
     echo "Nothing to do!"
     ;;
