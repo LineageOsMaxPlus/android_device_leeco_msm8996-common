@@ -9,6 +9,11 @@ DEVINFO=$(cat /dev/block/sde21)
 echo "DEVINFO: ${DEVINFO}"
 
 case "$DEVINFO" in
+  max_plus*)
+    # Move firmware
+    mv -f /vendor/firmware/max_plus/* /vendor/firmware/
+    ;;
+
   le_zl0*)
     # Move firmware
     mv -f /vendor/firmware/zl0/* /vendor/firmware/
@@ -26,6 +31,7 @@ case "$DEVINFO" in
     rm -f /system/framework/org.simalliance.openmobileapi.jar
     rm -rf /vendor/app/SmartcardService
     ;;
+
   *)
     echo "Nothing to do!"
     ;;
