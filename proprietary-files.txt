@@ -502,6 +502,9 @@ vendor/lib/libOmxWmaDec.so|c1d071accf3eacd7c69e6d07765e14494754ff60
 vendor/lib/libvqzip.so|9cb3212b118b6626918850abc907c41d1b819ac4
 -vendor/lib64/libgpustats.so|7f884a3e4ddc6f7016120ab9aed952f1261e210f
 
+# NFC firmware - from oneplus3 - 9/PKQ1.181203.001/1903190014
+vendor/lib/libpn548ad_fw.so|e78f2c9e7a5cb0001d2f71a69f37ec8261fb05b8
+
 # Perf - from LA.UM.8.6.r1-01900-89xx.0
 vendor/bin/energy-awareness|d9124bd669e2e3a1e2d40e96518ba18f15f21af6
 vendor/bin/hw/vendor.qti.hardware.perf@2.0-service|69186f92b781f1e296c99bb274c419591e1347cf
