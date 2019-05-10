@@ -20,6 +20,22 @@ case "$DEVINFO" in
     mv -f /mnt/vendor/firmware/max_plus/* /mnt/vendor/firmware/
     ;;
 
+  le_x2*)
+    # Remove NFC configs
+    rm -f /mnt/system/system/etc/libnfc-nci.conf
+    rm -f /mnt/vendor/etc/libnfc-nxp_RF.conf
+    rm -f /mnt/vendor/etc/libnfc-nxp.conf
+
+    # Remove NFC perms
+    rm -f /mnt/vendor/etc/permissions/android.hardware.nfc*
+    rm -f /mnt/vendor/etc/permissions/com.android.nfc*
+    rm -f /mnt/vendor/etc/permissions/com.nxp.mifare.xml
+
+    # Remove NFC services
+    rm -f /mnt/vendor/etc/init/android.hardware.nfc*
+    rm -f /mnt/vendor/etc/init/vendor.nxp.hardware.nfc*
+    ;;
+
   le_zl0*)
     # Mount parittions
     if test -f "$LOSRECOVERY"; then
