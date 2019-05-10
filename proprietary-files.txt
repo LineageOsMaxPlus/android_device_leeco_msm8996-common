@@ -518,6 +518,14 @@ vendor/lib/libvpplibrary.so|316e22a194a84d9eb5732d4e25c159575dac91e3
 vendor/lib/libvqzip.so|0b906db131e99cd5460b8a72d05e86721243de95
 -vendor/lib64/libgpustats.so|1a091475fb4a744f091bec101a51044fb8854a15
 
+# NFC firmware - from oneplus3 - 9/PKQ1.181203.001/1903190014
+vendor/lib/libpn548ad_fw.so|e78f2c9e7a5cb0001d2f71a69f37ec8261fb05b8
+
+# NFC (SmartcardService) - from caf
+-vendor/app/SmartcardService/SmartcardService.apk|217cbd3eb44ec9c0c55bbfeafb3b0a77910bd41b
+etc/permissions/org.simalliance.openmobileapi.xml|2106c9a80cb2b7a19164b21f1d3fe3a83b78ce46
+framework/org.simalliance.openmobileapi.jar|88aff9b31377c2e101d8ae0fc97f847dba5b7676
+
 # Offline charger - from x2
 vendor/bin/charger|0a3861fd5b997337a40926e7ddb2829461cfded8
 
