@@ -31,7 +31,7 @@
          Zone N:        array[N - 1] <= LUX < array[N]
          Zone N + 1     array[N] <= LUX < infinity
          Must be overridden in platform specific overlays -->
-    <integer-array name="config_autoBrightnessLevels">,
+    <integer-array name="config_autoBrightnessLevels">
         <item>6</item>
         <item>8</item>
         <item>10</item>
