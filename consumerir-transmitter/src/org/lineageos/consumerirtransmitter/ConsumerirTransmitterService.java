@@ -28,7 +28,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.UserHandle;
 import android.text.TextUtils;
-import android.util.Log;
+import org.lineageos.consumerirtransmitter.utils.Log;
 import android.content.ComponentName;
 import android.content.ServiceConnection;
 import org.lineageos.consumerirtransmitter.beans.IRCMDBean;
@@ -37,11 +37,16 @@ import org.lineageos.consumerirtransmitter.utils.ReflectionUtils;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.util.Arrays;
+import static org.lineageos.consumerirtransmitter.Constants.RE_SEND_INTENT_MSG_TO_SOCKET;
+import static org.lineageos.consumerirtransmitter.Constants.USE_SOCKET;
 
 public class ConsumerirTransmitterService extends Service {
     private static final String TAG = "ConsumerirTransmitter";
-    private static final boolean DEBUG = true;
 
     private static final String ACTION_TRANSMIT_IR =
         "org.lineageos.consumerirtransmitter.TRANSMIT_IR";
@@ -53,38 +58,58 @@ public class ConsumerirTransmitterService extends Service {
 
     private TransmitHandler mHandler = null;
     private HandlerThread mHandlerThread = null;
+
+    private Handler mSendSocketHandler = null;
+    private HandlerThread mSendSocketHandlerThread = null;
+
     private static final int MSG_TRANSMIT_IR_CMD = 1000;
     private static final int MSG_BIND_QUICKSET_RETRY = 1001;
-
     private static final long BIND_QUICKSET_SDK_RETRY_TIME = 5000;
+
+    private static final String LISTEN_ADDRESS = "127.0.0.1";
+    private static final int LISTEN_PORT = 48080;
+    private static final int SOCKET_SEND_TIME_OUT = 10 * 1000;
+
+
+    private Thread mUDPListenerThread = new Thread () {
+
+        @Override
+        public void run() {
+            registerUDPListener();
+        }
+    };
 
     @Override
     public void onCreate() {
-        if (DEBUG)
-            Log.d(TAG, "Creating service");
-
+        Log.d(TAG, "Creating service");
         switchIr("1");
         mHandlerThread = new HandlerThread("transmit_handler");
         mHandlerThread.start();
         mHandler = new TransmitHandler(mHandlerThread.getLooper());
+        if (RE_SEND_INTENT_MSG_TO_SOCKET) {
+            mSendSocketHandlerThread = new HandlerThread("send_socket");
+            mSendSocketHandlerThread.start();
+            mSendSocketHandler = new Handler(mSendSocketHandlerThread.getLooper());
+        }
         bindQuickSetService();
         IRCMDCacheManager.getInstance().clear();
         registerReceiver(mIrReceiver, new IntentFilter(ACTION_TRANSMIT_IR));
+        if (USE_SOCKET) {
+            mUDPListenerThread.start();
+        }
+
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (DEBUG)
-            Log.d(TAG, "Starting service");
+        Log.d(TAG, "Starting service");
         parseIRCMDIntent(intent);
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        if (DEBUG)
-            Log.d(TAG, "Destroying service");
-
+        Log.d(TAG, "Destroying service");
         super.onDestroy();
         this.unregisterReceiver(mIrReceiver);
         this.unbindService(mControlServiceConnection);
@@ -101,6 +126,25 @@ public class ConsumerirTransmitterService extends Service {
         } else {
             mHandler = null;
             mHandlerThread = null;
+        }
+        if (RE_SEND_INTENT_MSG_TO_SOCKET) {
+            if (null != mSendSocketHandler
+                    && null != mSendSocketHandlerThread) {
+                mSendSocketHandler.removeCallbacksAndMessages(null);
+                mSendSocketHandler = null;
+                mSendSocketHandlerThread.quitSafely();
+                mSendSocketHandlerThread.interrupt();
+                mSendSocketHandlerThread = null;
+            } else {
+                mSendSocketHandler = null;
+                mSendSocketHandlerThread = null;
+            }
+        }
+        if (USE_SOCKET
+                && null != mUDPListenerThread
+                && mUDPListenerThread.isAlive()) {
+            mUDPListenerThread.interrupt();
+            mUDPListenerThread = null;
         }
     }
 
@@ -124,9 +168,7 @@ public class ConsumerirTransmitterService extends Service {
                 if (null == ircmdBean) {
                     break;
                 }
-                if (DEBUG) {
-                    Log.i(TAG, "sending cached cmd to QuickSet SDK: " + ircmdBean);
-                }
+                Log.i(TAG, "sending cached cmd to QuickSet SDK: " + ircmdBean);
                 if (null != mHandler) {
                     mHandler.sendMessage(mHandler.obtainMessage(MSG_TRANSMIT_IR_CMD,
                             ircmdBean));
@@ -134,8 +176,8 @@ public class ConsumerirTransmitterService extends Service {
 
             }
 
-            if (DEBUG)
-                Log.i(TAG, "QuickSet SDK Service SUCCESSFULLY CONNECTED!");
+            Log.i(TAG, "QuickSet SDK Service SUCCESSFULLY CONNECTED!");
+
         }
 
         @Override
@@ -144,8 +186,7 @@ public class ConsumerirTransmitterService extends Service {
                 mBound = false;
                 mControl = null;
             }
-            if (DEBUG)
-                Log.i(TAG, "QuickSet SDK Service DISCONNECTED!");
+            Log.i(TAG, "QuickSet SDK Service DISCONNECTED!");
         }
     };
 
@@ -153,10 +194,9 @@ public class ConsumerirTransmitterService extends Service {
      * Try to bind QuickSet SDK Service
      */
     public void bindQuickSetService() {
-        if (DEBUG)
-            Log.d(TAG,
+        Log.d(TAG,
                 "Trying to bind QuickSet service: " + IControl.QUICKSET_UEI_PACKAGE_NAME + " - "
-                    + IControl.QUICKSET_UEI_SERVICE_CLASS);
+                        + IControl.QUICKSET_UEI_SERVICE_CLASS);
         try {
             Intent controlIntent = new Intent(IControl.ACTION);
             controlIntent.setClassName(
@@ -173,7 +213,7 @@ public class ConsumerirTransmitterService extends Service {
                     Context.BIND_AUTO_CREATE,
                     ReflectionUtils.getStaticAttribute("android.os.UserHandle", "CURRENT")
             });
-            if (!bindResult && DEBUG) {
+            if (!bindResult) {
                 Log.e(TAG, "Binding QuickSet Control service failed!, retry later");
                 if (null != mHandler) {
                     mHandler.sendEmptyMessageDelayed(MSG_BIND_QUICKSET_RETRY,
@@ -194,14 +234,13 @@ public class ConsumerirTransmitterService extends Service {
      *     API
      */
     public int transmitIrPattern(int carrierFrequency, int[] pattern) {
-        if (DEBUG)
-            Log.d(TAG,
+        Log.d(TAG,
                 "transmitIrPattern called: freq: " + carrierFrequency
-                    + ", pattern-len: " + pattern.length);
+                        + ", pattern-len: " + pattern.length);
+
 
         if (mControl == null || !mBound) {
-            if (DEBUG)
-                Log.w(TAG, "QuickSet Service seems not to be bound. Trying to bind again and exit!");
+            Log.w(TAG, "QuickSet Service seems not to be bound. Trying to bind again and exit!");
             IRCMDCacheManager.getInstance()
                     .produce(new IRCMDBean(carrierFrequency, pattern));
             bindQuickSetService();
@@ -247,9 +286,7 @@ public class ConsumerirTransmitterService extends Service {
 
     private void parseIRCMDIntent(Intent intent) {
         if (null == intent) {
-            if (DEBUG) {
-                Log.e(TAG, "parseIRCMDIntent: null intent");
-            }
+            Log.e(TAG, "parseIRCMDIntent: null intent");
             return;
         }
         if (TextUtils.equals(ACTION_TRANSMIT_IR, intent.getAction())) {
@@ -265,6 +302,19 @@ public class ConsumerirTransmitterService extends Service {
                     mHandler.sendMessage(mHandler.obtainMessage(MSG_TRANSMIT_IR_CMD,
                             new IRCMDBean(carrierFrequency, pattern)));
                 }
+                if (RE_SEND_INTENT_MSG_TO_SOCKET
+                        && null != mSendSocketHandler) {//just for debug
+                    mSendSocketHandler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.d(TAG, "msg from am startService or broadcast send " +
+                                    "to socket again[just for debug]---> "
+                                    + new IRCMDBean(carrierFrequency, pattern));
+                            sendSocket(patternStr + ", " + carrierFrequency);
+                        }
+                    });
+                }
+
             }
         }
     }
@@ -283,15 +333,14 @@ public class ConsumerirTransmitterService extends Service {
                 case MSG_TRANSMIT_IR_CMD:
                     IRCMDBean cmd = (IRCMDBean) msg.obj;
                     synchronized (mLock) {
+                        Log.d(TAG, "translate cmd = " + cmd);
                         transmitIrPattern(cmd.carrierFrequency, cmd.pattern);
                     }
                     break;
                 case MSG_BIND_QUICKSET_RETRY:
                     synchronized (mLock) {
                         if (mControl == null || !mBound) {
-                            if (DEBUG) {
-                                Log.d(TAG, "retry to binding quick sdk");
-                            }
+                            Log.d(TAG, "retry to binding quick sdk");
                             bindQuickSetService();
                         }
                     }
@@ -299,4 +348,88 @@ public class ConsumerirTransmitterService extends Service {
             }
         }
     }
+
+    private void registerUDPListener() {
+        Log.d(TAG, "registerUDPListener");
+        DatagramSocket serverSocket = null;
+        try {
+            serverSocket = new DatagramSocket(LISTEN_PORT);
+            byte[] receiveData = new byte[1024];
+            while (true) {
+                Log.d(TAG, "socket listen while loop...");
+                DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                try {
+                    Log.d(TAG, "serverSocket.receive+++");
+                    serverSocket.receive(receivePacket);
+                    Log.d(TAG, "serverSocket.receive---");
+                } catch (IOException e) {
+                    Log.e(TAG, "Exception while receiving DatagramPacket: ", e);
+                    continue;
+                }
+                Log.d(TAG, "received a socket packet from native");
+                String sentence = new String(receivePacket.getData());
+                int[] pattern = Arrays.stream(sentence.split(","))
+                        .map(String::trim)
+                        .mapToInt(Integer::parseInt)
+                        .toArray();
+                int carrierFrequency = pattern[pattern.length - 1];
+                pattern = Arrays.copyOf(pattern, pattern.length - 1);
+                if (null != mHandler) {
+                    mHandler.sendMessage(mHandler.obtainMessage(MSG_TRANSMIT_IR_CMD,
+                            new IRCMDBean(carrierFrequency, pattern)));
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while trying to register UDPListener: ", e);
+        } finally {
+            if (null != serverSocket) {
+                try {
+                    serverSocket.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Log.e(TAG, "Exception while close socket", e);
+                }
+            }
+
+        }
+
+    }
+
+
+    private void sendSocket(String msg) {
+        //just for debug socket send & receive logic
+        DatagramSocket socket = null;
+        try {
+            socket = new DatagramSocket();
+        } catch (SocketException e) {
+            e.printStackTrace();
+            Log.e(TAG, "socket create exception");
+        }
+        try {
+            InetAddress serverAddress = null;
+            serverAddress = InetAddress.getByName(LISTEN_ADDRESS);
+            int port = LISTEN_PORT;
+
+            if (null == serverAddress) {
+                return;
+            }
+            socket.setSoTimeout(SOCKET_SEND_TIME_OUT);
+            byte[] bytesToSend = msg.getBytes();
+            DatagramPacket sendPacket = new DatagramPacket(bytesToSend,
+                    bytesToSend.length, serverAddress, port);
+            Log.d(TAG, "socket.send+++");
+            socket.send(sendPacket);
+            Log.d(TAG, "socket.send---");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Log.e(TAG, "socket send exception");
+
+        } finally {
+            if (null != socket) {
+                socket.close();
+            }
+        }
+    }
+
 }

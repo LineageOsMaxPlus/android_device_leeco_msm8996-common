@@ -27,6 +27,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <string>
+#include "UDPClient.h"
+
 namespace android {
 namespace hardware {
 namespace ir {
@@ -45,6 +48,7 @@ static hidl_vec<ConsumerIrFreqRange> rangeVec{
 // Methods from ::android::hardware::ir::V1_0::IConsumerIr follow.
 Return<bool> ConsumerIr::transmit(int32_t carrierFreq, const hidl_vec<int32_t>& pattern) {
     if (pattern.size() > 0) {
+        /*
         std::ostringstream vts;
 
         // Convert all but the last element to avoid a trailing ","
@@ -61,6 +65,18 @@ Return<bool> ConsumerIr::transmit(int32_t carrierFreq, const hidl_vec<int32_t>& 
         if (child == 0) {
             execl("/system/bin/sh", "sh", "-c", ss.str().c_str(), (char*)0);
         }
+        */
+
+        std::ostringstream vts;
+
+        std::copy(pattern.begin(), pattern.end(), std::ostream_iterator<int32_t>(vts, ","));
+
+        vts << carrierFreq;
+
+        std::string msg = vts.str();
+        UDPClient *client = new UDPClient("127.0.0.1", 48080);
+        client->send(msg.c_str(), msg.size());
+        LOG(ERROR) << "ConsumerIr send a cmd to 127.0.0.1:48080";
 
         return true;
     }

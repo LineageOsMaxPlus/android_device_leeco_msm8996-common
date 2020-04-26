@@ -16,6 +16,8 @@
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="org.lineageos.consumerirtransmitter" android:versionCode="1" android:versionName="1.2" android:sharedUserId="android.uid.system">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application android:label="ConsumerirTransmitter"
         android:name=".MainApplication"
         android:persistent="true"
