@@ -11,24 +11,37 @@ UDPClient::UDPClient(const std::string& addr, int port)
 {
     char decimal_port[16];
     snprintf(decimal_port, sizeof(decimal_port), "%d", f_port);
-    decimal_port[sizeof(decimal_port) / sizeof(decimal_port[0]) - 1] = '\0';
+    decimal_port[sizeof(decimal_port) / sizeof(decimal_port[0] - 1)] = '\0';
     struct addrinfo hints;
+    int ret_val;
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_DGRAM;
     hints.ai_protocol = IPPROTO_UDP;
-    int r(getaddrinfo(addr.c_str(), decimal_port, &hints, &f_addrinfo));
-    if (r != 0 || f_addrinfo == NULL)
+
+    ret_val = getaddrinfo(addr.c_str(), decimal_port, &hints, &f_addrinfo);
+    LOG(DEBUG) << "Trying to create socket: " + addr + ":" + decimal_port;
+
+    if(ret_val != 0 || f_addrinfo == NULL)
     {
-        //throw UDPClientRuntimeError(("Invalid address or port: \"" + addr + ":" + decimal_port + "\"").c_str());
         LOG(ERROR) << "Invalid address or port: " + addr + ":" + decimal_port;
     }
+
     f_socket = socket(f_addrinfo->ai_family, SOCK_DGRAM | SOCK_CLOEXEC, IPPROTO_UDP);
-    if (f_socket == -1)
+
+    if(f_socket == -1)
     {
         freeaddrinfo(f_addrinfo);
-        //throw UDPClientRuntimeError(("Could not create socket for: \"" + addr + ":" + decimal_port + "\"").c_str());
         LOG(ERROR) << "Could not create socket for: " + addr + ":" + decimal_port;
+    }
+
+    ret_val = bind(f_socket, f_addrinfo->ai_addr, f_addrinfo->ai_addrlen);
+
+    if(ret_val != 0)
+    {
+        freeaddrinfo(f_addrinfo);
+        close(f_socket);
+        LOG(ERROR) << "Could not bind UDP socket with: " + addr + ":" + decimal_port;
     }
 }
 
