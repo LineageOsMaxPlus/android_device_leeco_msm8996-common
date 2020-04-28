@@ -45,7 +45,7 @@ import java.util.Arrays;
 
 public class ConsumerirTransmitterService extends Service {
     private static final String TAG = "ConsumerirTransmitter";
-    private static final boolean DEBUG = false;
+    private static final boolean DEBUG = true;
 
     private static final String ACTION_TRANSMIT_IR =
         "org.lineageos.consumerirtransmitter.TRANSMIT_IR";
@@ -64,8 +64,13 @@ public class ConsumerirTransmitterService extends Service {
         switchIr("1");
 
         bindQuickSetService();
+        new Thread() {
+            @Override
+            public void run() {
+                registerUDPListener();
+            }
+        }.start();
 
-        registerUDPListener();
     }
 
     @Override
@@ -191,33 +196,44 @@ public class ConsumerirTransmitterService extends Service {
     }
 
     private void registerUDPListener() {
-        DatagramSocket serverSocket;
+        Log.d(TAG, "registerUDPListener");
+        DatagramSocket serverSocket = null;
         try {
             serverSocket = new DatagramSocket(8877);
-        } catch (SocketException e) {
-            Log.e(TAG, "Exception while trying to register UDPListener: ", e);
-            return;
-        }
-        byte[] receiveData = new byte[1024];
-        byte[] sendData = new byte[1024];
-        while (!stop) {
-            DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
-            try {
-                serverSocket.receive(receivePacket);
-            } catch (IOException e) {
-                Log.e(TAG, "Exception while receiving DatagramPacket: ", e);
-                continue;
+            byte[] receiveData = new byte[1024];
+            while (true) {
+                Log.d(TAG, "socket listen while loop...");
+                DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
+                try {
+                    Log.d(TAG, "serverSocket.receive+++");
+                    serverSocket.receive(receivePacket);
+                    Log.d(TAG, "serverSocket.receive---");
+                } catch (IOException e) {
+                    Log.e(TAG, "Exception while receiving DatagramPacket: ", e);
+                    continue;
+                }
+                Log.d(TAG, "received a socket packet from native");
+                String sentence = new String(receivePacket.getData());
+                int[] pattern = Arrays.stream(sentence.split(","))
+                        .map(String::trim)
+                        .mapToInt(Integer::parseInt)
+                        .toArray();
+                int carrierFrequency = pattern[pattern.length - 1];
+                pattern = Arrays.copyOf(pattern, pattern.length - 1);
+                transmitIrPattern(carrierFrequency, pattern);
             }
-            String sentence = new String(receivePacket.getData());
-            int[] pattern = Arrays.stream(sentence.split(","))
-                                .map(String::trim)
-                                .mapToInt(Integer::parseInt)
-                                .toArray();
-            int carrierFrequency = pattern[pattern.length];
-            Arrays.copyOf(pattern, pattern.length - 1);
-            transmitIrPattern(carrierFrequency, pattern);
-        }
+        } catch (Exception e) {
+            Log.e(TAG, "Exception while trying to register UDPListener: ", e);
+        } finally {
+            if (null != serverSocket) {
+                try {
+                    serverSocket.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    Log.e(TAG, "Exception while close socket", e);
+                }
+            }
 
-        serverSocket.close();
+        }
     }
 }
