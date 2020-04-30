@@ -1,0 +1,15 @@
+type hal_ir_leeco_msm8996, domain, coredomain;
+type hal_ir_leeco_msm8996_exec, exec_type, file_type;
+
+hal_server_domain(hal_ir_leeco_msm8996, hal_ir)
+
+init_daemon_domain(hal_ir_leeco_msm8996)
+
+# Read and write /sys/remote/enable
+allow system_app sysfs_ir_enable:file { rw_file_perms };
+
+# Create tcp socket
+allow hal_ir_leeco_msm8996 self:tcp_socket { create_socket_perms };
+
+# Connect unix_stream_socket
+allow hal_ir_leeco_msm8996 system_app:unix_stream_socket connectto;
